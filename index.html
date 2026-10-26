@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meeting Vibe Check</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --ink: #e8eaef; --muted: #9aa3b2;
+    --line: #2a303c; --accent: #7c9cff; --ok: #3ecf8e; --warn: #e6b84d; --bad: #ff6b6b;
+    --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink); font-family: var(--font);
+    background:
+      radial-gradient(1200px 500px at 10% -10%, #1b2440 0%, transparent 55%),
+      radial-gradient(900px 400px at 100% 0%, #2a1a14 0%, transparent 50%),
+      var(--bg);
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 1.75rem; letter-spacing: -0.03em; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; line-height: 1.45; }
+  .rubric {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 24px; font-size: 0.9rem; color: var(--muted); line-height: 1.5;
+  }
+  .rubric strong { color: var(--ink); font-weight: 600; }
+  .rubric ul { margin: 8px 0 0; padding-left: 1.1em; }
+  label {
+    display: block; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%; min-height: 130px; resize: vertical; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px; font: 1rem/1.45 var(--font);
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button {
+    border: 0; border-radius: 999px; padding: 10px 16px;
+    font: 600 0.95rem/1 var(--font); cursor: pointer;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .primary { background: var(--ink); color: var(--bg); }
+  .quiet { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  #out { display: none; margin-top: 32px; }
+  .score-wrap {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  }
+  .score-num { font-size: 3.2rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; margin-bottom: 10px; }
+  .track { height: 12px; background: #0c0e12; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .fill { height: 100%; width: 0; transition: width 0.35s ease; }
+  .roast { margin: 14px 0 0; color: var(--muted); line-height: 1.45; }
+  .breakdown { margin-top: 12px; font-family: var(--mono); font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+  .hits { margin-top: 8px; font-family: var(--mono); font-size: 0.85rem; color: var(--warn); }
+  .usable {
+    background: #13201a; border: 1px solid #2a4a3a; border-radius: 14px; padding: 16px; margin-bottom: 12px;
+  }
+  .usable.gaps {
+    background: #201a13; border-color: #4a3a2a;
+  }
+  .usable h2 { margin: 0 0 8px; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); }
+  .usable.gaps h2 { color: var(--warn); }
+  .usable .short {
+    margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid #2a4a3a;
+    line-height: 1.45; white-space: pre-wrap; font-weight: 600;
+  }
+  .usable.gaps .short { border-bottom-color: #4a3a2a; }
+  .usable .full { margin: 0; line-height: 1.5; white-space: pre-wrap; color: var(--ink); }
+  .usable .hint { margin: 0 0 6px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .gapnote {
+    margin: 0 0 12px; font-size: 0.9rem; color: var(--warn); line-height: 1.45;
+  }
+  .cards { display: grid; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .card h2 { margin: 0 0 10px; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .card p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Meeting Vibe Check</h1>
+  <p class="sub">Paste what you’re about to say. Get a cringe score, an honest Say this (placeholders when facts are missing), plus joke rewrites.</p>
+  <div class="rubric">
+    <strong>Scoring rule</strong>
+    <ul>
+      <li>Buzzwords add weight; repeats after the first count half</li>
+      <li>Fluff (+2) and hedges (+4–10) stack on top</li>
+      <li>Length: +4 over 40 words, +6 more over 70</li>
+      <li>Curve: round(100 × raw/(raw+55)) — leaves headroom</li>
+      <li>Bands: 0–19 clear · 20–34 fine · 35–49 haze · 50–64 mid · 65–79 slide · 80–100 HR</li>
+    </ul>
+  </div>
+  <label for="draft">Your meeting line</label>
+  <textarea id="draft" placeholder="e.g. Going forward I’d love to circle back…  — or: I'll send the deck to Sam by Friday; need her OK on slide 3."></textarea>
+  <div class="row">
+    <button class="primary" id="run" type="button">Vibe check</button>
+    <button class="quiet" id="clear" type="button">Clear</button>
+  </div>
+  <div id="out">
+    <div class="score-wrap">
+      <div class="score-num" id="scoreNum">0</div>
+      <div class="track"><div class="fill" id="scoreFill"></div></div>
+      <p class="roast" id="roast"></p>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="hits" id="hits"></div>
+    </div>
+    <div class="usable" id="usableBox">
+      <h2 id="sayHeading">Say this</h2>
+      <p class="gapnote" id="gapnote" hidden></p>
+      <div class="hint">Slack cut</div>
+      <p class="short" id="short"></p>
+      <div class="hint">Owned ask</div>
+      <p class="full" id="usable"></p>
+    </div>
+    <div class="cards">
+      <div class="card"><h2>Brutally honest</h2><p id="brutal"></p></div>
+      <div class="card"><h2>Mid-manager</h2><p id="mid"></p></div>
+      <div class="card"><h2>Chaos gremlin</h2><p id="chaos"></p></div>
+    </div>
+  </div>
+  <footer>Cmd/Ctrl+Enter. v5.1 shipped — public, placeholders, Let's-name fix. Bob The Builder.</footer>
+</main>
+<script>
+const JARGON = [
+  [/synerg(?:y|ies|ize)/gi, 14, "synergy"], [/leverage/gi, 12, "leverage"], [/circle back/gi, 13, "circle back"],
+  [/touch base/gi, 12, "touch base"], [/bandwidth/gi, 11, "bandwidth"], [/low[- ]hanging fruit/gi, 14, "low-hanging fruit"],
+  [/move the needle/gi, 13, "move the needle"], [/paradigm/gi, 12, "paradigm"], [/ecosystem/gi, 10, "ecosystem"],
+  [/stakeholders?/gi, 9, "stakeholders"], [/align(?:ment|ed|ing)?/gi, 10, "align"], [/cascade/gi, 11, "cascade"],
+  [/actionable/gi, 9, "actionable"], [/take (?:this |it )?offline/gi, 13, "take offline"], [/deep dive/gi, 11, "deep dive"],
+  [/pivot/gi, 10, "pivot"], [/disrupt(?:ive|ion)?/gi, 11, "disrupt"], [/best practices?/gi, 8, "best practices"],
+  [/going forward/gi, 10, "going forward"], [/at the end of the day/gi, 12, "at the end of the day"],
+  [/net[- ]net/gi, 11, "net-net"], [/boil the ocean/gi, 13, "boil the ocean"], [/thought leadership/gi, 14, "thought leadership"],
+  [/value[- ]add(?:ed)?/gi, 12, "value-add"], [/core competenc(?:y|ies)/gi, 12, "core competency"],
+  [/ideat(?:e|ion)/gi, 13, "ideate"], [/unpack/gi, 9, "unpack"], [/socialize/gi, 12, "socialize"],
+  [/\bping\b/gi, 8, "ping"], [/loop (?:in|you in)/gi, 10, "loop in"], [/optics/gi, 11, "optics"],
+  [/north star/gi, 10, "north star"], [/double[- ]click/gi, 12, "double-click"],
+  [/(?:30|30,000|thirty[- ]thousand)[- ]foot/gi, 13, "30k-foot"], [/table stakes/gi, 11, "table stakes"],
+  [/lean in/gi, 11, "lean in"], [/level[- ]set/gi, 12, "level-set"], [/put a pin in/gi, 11, "put a pin in"],
+  [/parking lot/gi, 10, "parking lot"], [/quick win/gi, 9, "quick win"], [/swim lanes?/gi, 11, "swim lane"],
+  [/drill down/gi, 10, "drill down"], [/rightsize/gi, 14, "rightsize"], [/operationalize/gi, 13, "operationalize"],
+  [/incentivize/gi, 10, "incentivize"], [/cross[- ]functional/gi, 9, "cross-functional"], [/win[- ]win/gi, 10, "win-win"],
+  [/game[- ]changer/gi, 11, "game-changer"], [/bleeding edge/gi, 10, "bleeding edge"], [/reach out/gi, 8, "reach out"],
+  [/hard stop/gi, 8, "hard stop"], [/time[- ]box(?:ed|ing)?/gi, 8, "time-box"], [/deliverables?/gi, 8, "deliverables"],
+  [/holistic/gi, 9, "holistic"], [/robust/gi, 8, "robust"], [/proactive(?:ly)?/gi, 8, "proactive"],
+];
+const FLUFF = [/very/gi, /really/gi, /\bjust\b/gi, /actually/gi, /basically/gi, /literally/gi, /absolutely/gi, /critical(?:ly)?/gi, /essentially/gi];
+
+function countHits(text, re) { const m = text.match(re); return m ? m.length : 0; }
+function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+
+function scoreCringe(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return { score: 0, hits: [], parts: [], label: "Silence", roast: "Nothing to roast." };
+  let raw = 0; const hits = []; const parts = [];
+  for (const [re, weight, name] of JARGON) {
+    const n = countHits(trimmed, re);
+    if (!n) continue;
+    const pts = weight + Math.max(0, n - 1) * Math.round(weight / 2);
+    raw += pts;
+    const s = trimmed.match(re); if (s) hits.push(s[0]);
+    parts.push(`${name} ×${n} (+${pts})`);
+  }
+  let fluff = 0;
+  for (const re of FLUFF) {
+    const n = countHits(trimmed, re);
+    if (n) { fluff += 2 * n; raw += 2 * n; }
+  }
+  if (fluff) parts.push(`fluff (+${fluff})`);
+  const hedges = [
+    [/we should (?:probably |maybe )?(?:consider|explore|look into)/i, 8, "hedge: we should consider"],
+    [/I(?:'d| would) love to/i, 7, "hedge: I'd love to"],
+    [/I (?:just )?wanted to/i, 6, "hedge: I wanted to"],
+    [/if that makes sense/i, 8, "hedge: if that makes sense"],
+    [/does that resonate/i, 10, "hedge: does that resonate"],
+    [/quick question/i, 4, "hedge: quick question"],
+  ];
+  for (const [re, pts, name] of hedges) {
+    if (re.test(trimmed)) { raw += pts; parts.push(`${name} (+${pts})`); }
+  }
+  const words = trimmed.split(/\s+/).length;
+  let length = 0;
+  if (words > 40) length += 4;
+  if (words > 70) length += 6;
+  if (length) { raw += length; parts.push(`length ${words}w (+${length})`); }
+  const score = Math.max(0, Math.min(100, Math.round(100 * raw / (raw + 55))));
+  parts.unshift(`raw ${raw} → curve = ${score}`);
+  let label = "Human", roast = "Almost natural. Suspicious.";
+  if (score >= 80) { label = "HR simulation"; roast = "This could summon a LinkedIn ghost."; }
+  else if (score >= 65) { label = "Slide deck energy"; roast = "Someone is about to say 'let’s take a step back.'"; }
+  else if (score >= 50) { label = "Middle-manager adjacent"; roast = "Safe enough to survive Q3. Barely."; }
+  else if (score >= 35) { label = "Mild corporate haze"; roast = "A few buzzwords slipped past security."; }
+  else if (score >= 20) { label = "Mostly fine"; roast = "You might still have a soul."; }
+  else { label = "Suspiciously clear"; roast = "Are you even employed?"; }
+  return { score, hits: [...new Set(hits)].slice(0, 8), parts, label, roast };
+}
+
+function tidy(t) {
+  t = t.replace(/\s{2,}/g, " ");
+  t = t.replace(/\s+([,.!?;:])/g, "$1");
+  t = t.replace(/,+/g, ",");
+  t = t.replace(/,(?=[.!?]|$)/g, "");
+  t = t.replace(/^[,\s]+|[,\s]+$/g, "");
+  t = t.trim();
+  if (t) t = t[0].toUpperCase() + t.slice(1);
+  return t;
+}
+
+function stripJargon(text) {
+  let t = text;
+  const swaps = [
+    [/synerg(?:y|ies|ize)/gi, "work together"], [/leverage/gi, "use"], [/circle back/gi, "follow up"],
+    [/touch base/gi, "talk"], [/bandwidth/gi, "time"], [/low[- ]hanging fruit/gi, "easy wins"],
+    [/move the needle/gi, "make progress"], [/paradigm/gi, "approach"], [/ecosystem/gi, "setup"],
+    [/stakeholders?/gi, "the team"], [/alignment/gi, "agreement"], [/align(?:ed|ing)?/gi, "agree"],
+    [/cascade/gi, "share with"], [/actionable/gi, "useful"], [/take (?:this |it )?offline/gi, "follow up separately"],
+    [/deep dive/gi, "review"], [/pivot/gi, "change course"], [/disrupt(?:ive|ion)?/gi, "change"],
+    [/best practices?/gi, "what usually works"], [/going forward/gi, "next"],
+    [/at the end of the day/gi, ""], [/net[- ]net/gi, "bottom line"],
+    [/boil the ocean/gi, "do everything"], [/thought leadership/gi, "point of view"],
+    [/value[- ]add(?:ed)?/gi, "useful"], [/core competenc(?:y|ies)/gi, "strengths"],
+    [/ideat(?:e|ion)/gi, "brainstorm"], [/unpack/gi, "explain"], [/socialize/gi, "share"],
+    [/\bping\b/gi, "message"], [/loop (?:in|you in)/gi, "include"], [/optics/gi, "how it looks"],
+    [/north star/gi, "main goal"], [/double[- ]click/gi, "focus on"], [/table stakes/gi, "the minimum"],
+    [/lean in/gi, "help"], [/level[- ]set/gi, "get aligned"], [/put a pin in/gi, "pause"],
+    [/parking lot/gi, "save for later"], [/reach out/gi, "contact"], [/operationalize/gi, "do"],
+    [/incentivize/gi, "motivate"], [/cross[- ]functional/gi, "across teams"], [/win[- ]win/gi, "good for both"],
+    [/game[- ]changer/gi, "big improvement"], [/rightsize/gi, "reduce"], [/does that resonate\??/gi, ""],
+    [/if that makes sense\??/gi, ""], [/I (?:just )?wanted to/gi, "I"], [/quick question[,:]?\s*/gi, ""],
+    [/I(?:'d| would) love to/gi, "I will"], [/would love to/gi, "will"], [/love to/gi, "will"],
+    [/we should (?:probably |maybe )?(?:consider|explore|look into)/gi, "we should"],
+    [/I think (?:that )?maybe/gi, "I think"],
+    [/very/gi, ""], [/really/gi, ""], [/\bjust\b/gi, ""], [/basically/gi, ""], [/absolutely/gi, ""],
+  ];
+  for (const [re, to] of swaps) t = t.replace(re, to);
+  return tidy(t) || text.trim();
+}
+
+function extractWhen(text) {
+  const m = text.match(/\bby\s+(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|EOD|EOW|end of (?:day|week)|[\w]+\s+\d{1,2}(?:st|nd|rd|th)?|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\b/i)
+    || text.match(/\b(tomorrow|today|this week|next week|Friday|Monday)\b/i);
+  return m ? m[0].replace(/^by\s+/i, "by ") : null;
+}
+
+function extractNames(text) {
+  const skip = new Set(["I","I'll","I'm","I'd","We","We'll","Let's","Let","The","This","That","Going","Quick","Net","At","If","Also","My","Someone","Friday","Monday","Tuesday","Wednesday","Thursday","Saturday","Sunday","EOD","EOW","Q3","Q1","Q2","Q4"]);
+  const cleaned = text.replace(/\b(Let|We|I|You|They|It)'(?:s|re|ll|ve|d)\b/g, "$1");
+  const names = [];
+  const re = /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\b/g;
+  let m;
+  while ((m = re.exec(cleaned))) {
+    if (!skip.has(m[1]) && m[1].length > 1) names.push(m[1]);
+  }
+  const from = cleaned.match(/\bfrom\s+([A-Z][a-z]+)\b/);
+  if (from && !skip.has(from[1])) names.unshift(from[1]);
+  const need = cleaned.match(/\bneed\s+.{0,40}?\bfrom\s+([A-Z][a-z]+)\b/i);
+  if (need && !skip.has(need[1])) names.unshift(need[1]);
+  return [...new Set(names)];
+}
+
+function extractDeliverable(text) {
+  const m = text.match(/\b(?:send|share|draft|ship|finish|complete|update|review|write|prepare|attach)\s+(?:over\s+)?(?:the\s+|a\s+|an\s+)?([a-z0-9][\w\s-]{1,40}?)(?:\s+by|\s+to|\s+for|,|\.|$)/i);
+  if (m) {
+    let d = m[1].trim().replace(/\s+/g, " ");
+    d = d.replace(/\b(to|with|for)$/i, "").trim();
+    if (d.length >= 2 && !/^(this|that|it|our|my|the)$/i.test(d)) return d;
+  }
+  const noun = text.match(/\b((?:the|a|an)\s+)?(deck|doc|document|report|proposal|plan|summary|PR|pull request|ticket|budget|timeline|roadmap|spec|slides?|update)\b/i);
+  if (noun) return (noun[0]).trim();
+  return null;
+}
+
+function extractNeed(text) {
+  const m = text.match(/\bneed(?:s)?\s+([^.;]+?)(?:\s+from\s+|\.|$)/i);
+  if (m) return m[1].trim();
+  if (/\byes\/?no\b/i.test(text)) return "a yes/no";
+  if (/\bapproval\b/i.test(text) || /\bOK\b/.test(text) || /\bok\b/i.test(text)) return "approval";
+  return null;
+}
+
+function parseFacts(text) {
+  const deliverable = extractDeliverable(text);
+  const names = extractNames(text);
+  const ownerOther = names[0] || null;
+  const when = extractWhen(text);
+  const need = extractNeed(text);
+  const gaps = [];
+  if (!deliverable) gaps.push("ask/deliverable");
+  if (!ownerOther) gaps.push("owner/name");
+  if (!when) gaps.push("date");
+  return {
+    deliverable: deliverable || "[deliverable]",
+    other: ownerOther || "[name]",
+    when: when || "by [date]",
+    need: need || "[what you need]",
+    gaps,
+    complete: gaps.length === 0,
+  };
+}
+
+function sayThis(text) {
+  const f = parseFacts(text);
+  const deliv = /^(the|a|an)\b/i.test(f.deliverable) ? f.deliverable : "the " + f.deliverable;
+  const needBit = (f.other.startsWith("[") || f.need.startsWith("["))
+    ? `need ${f.need} from ${f.other}`
+    : `need ${f.other}'s ${f.need.replace(/^her |his |their /i, "")}`;
+  const owned = `I'll send ${deliv} ${f.when}; ${needBit}.`.replace(/\s{2,}/g, " ");
+  const short = `I'll send ${deliv} ${f.when} — ${needBit}.`.replace(/\s{2,}/g, " ");
+  let gapnote = "";
+  if (!f.complete) {
+    gapnote = `Missing from your line: ${f.gaps.join(", ")}. Fill the [brackets] before you paste — I won't invent a plan.`;
+  }
+  return { short, owned, gapnote, complete: f.complete };
+}
+
+function brutal(text) {
+  let t = stripJargon(text);
+  t = t.replace(/\bI will\b/gi, "I'll");
+  t = t.replace(/\bwe should\b/gi, "we need to");
+  t = t.replace(/\bwant to\b/gi, "will");
+  t = t.replace(/\blove to\b/gi, "");
+  t = tidy(t);
+  if (/circle back/.test(text.toLowerCase()) && /needle|bandwidth|leverage/.test(text.toLowerCase())) {
+    t = "This line has no ask, no owner, and no deadline. Say what you'll send, by when, and what you need back.";
+  }
+  if (!/[.!?]$/.test(t)) t += ".";
+  return t;
+}
+
+function midManager(text) {
+  const core = stripJargon(text).replace(/[.!?]+$/, "") || "this initiative";
+  const openers = [
+    "Going forward, I'd love to cascade",
+    "At a high level, let's align on",
+    "Quick sync — wanting to socialize",
+    "Net-net, we should double-click on",
+  ];
+  const closers = [
+    "and loop in the right stakeholders so we can move the needle.",
+    "— happy to take this offline if bandwidth is tight.",
+    "and capture learnings as actionable deliverables.",
+    "to ensure we're all rowing in the same direction, optics-wise.",
+  ];
+  const i = Math.abs(hash(text)) % openers.length;
+  return `${openers[i]} ${core.toLowerCase()} ${closers[i]}`;
+}
+
+function chaos(text) {
+  const bits = [
+    "Also the coffee machine knows.",
+    "I brought a slide with one word: WHY.",
+    "If this meeting had a soundtrack it would be elevator jazz on fire.",
+    "My dog approved this message.",
+    "Bold strategy. Let's ship vibes.",
+    "I'm legally required to say synergy now. Synergy.",
+  ];
+  const i = Math.abs(hash(text)) % bits.length;
+  const base = stripJargon(text).replace(/[.!?]+$/, "");
+  return `${base || "We're doing a thing"}… or we flip the table and start a pirate standup. ${bits[i]}`;
+}
+
+const draft = document.getElementById("draft");
+const out = document.getElementById("out");
+function run() {
+  const text = draft.value;
+  if (!text.trim()) return;
+  const s = scoreCringe(text);
+  const say = sayThis(text);
+  const color = s.score >= 65 ? "var(--bad)" : s.score >= 35 ? "var(--warn)" : "var(--ok)";
+  document.getElementById("scoreNum").textContent = s.score;
+  document.getElementById("scoreNum").style.color = color;
+  const fill = document.getElementById("scoreFill");
+  fill.style.width = s.score + "%";
+  fill.style.background = color;
+  document.getElementById("roast").textContent = `${s.label} · ${s.score}/100 — ${s.roast}`;
+  document.getElementById("breakdown").textContent = s.parts.join(" · ");
+  document.getElementById("hits").textContent = s.hits.length ? "Flagged: " + s.hits.join(", ") : "";
+  const box = document.getElementById("usableBox");
+  const gapnote = document.getElementById("gapnote");
+  if (say.complete) {
+    box.classList.remove("gaps");
+    gapnote.hidden = true;
+    gapnote.textContent = "";
+    document.getElementById("sayHeading").textContent = "Say this";
+  } else {
+    box.classList.add("gaps");
+    gapnote.hidden = false;
+    gapnote.textContent = say.gapnote;
+    document.getElementById("sayHeading").textContent = "Say this (fill gaps)";
+  }
+  document.getElementById("short").textContent = say.short;
+  document.getElementById("usable").textContent = say.owned;
+  document.getElementById("brutal").textContent = brutal(text);
+  document.getElementById("mid").textContent = midManager(text);
+  document.getElementById("chaos").textContent = chaos(text);
+  out.style.display = "block";
+}
+document.getElementById("run").onclick = run;
+document.getElementById("clear").onclick = () => { draft.value = ""; out.style.display = "none"; };
+draft.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run();
+});
+</script>
+</body>
+</html>
